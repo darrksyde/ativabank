@@ -3,9 +3,10 @@ import { Button } from "@/components/ui/button";
 
 interface HeaderProps {
   title: string;
+  onLogout?: () => void;
 }
 
-export function Header({ title }: HeaderProps) {
+export function Header({ title, onLogout }: HeaderProps) {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
       <div className="flex h-16 items-center justify-between px-6">
@@ -59,6 +60,7 @@ export function Header({ title }: HeaderProps) {
           <Button 
             variant="outline" 
             size="sm"
+            onClick={onLogout}
             className="hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors"
           >
             <svg
