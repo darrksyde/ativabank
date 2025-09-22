@@ -8,70 +8,159 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-// Mock customer data - in a real app, this would come from an API
+// Enhanced mock customer data with all required fields
 const mockCustomerData = {
-  cust_001: {
-    id: "cust_001",
-    name: "John Doe",
-    email: "john.doe@email.com",
+  "1": {
+    id: "1",
+    name: "Alice Johnson",
+    email: "alice@example.com",
     phone: "+1 (555) 123-4567",
-    accountNumber: "1234567890",
-    balance: 10432.55,
+    accountNumber: "ACC001",
+    balance: 15420.50,
     status: "Active",
     joinDate: "2024-01-15",
+    lastLogin: "2024-12-22",
     address: "123 Main St, City, State 12345",
+    btcWallet: "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
+    usdtWallet: "0x742a4c2d2ef1d8e8b6c7a1b8d9f0e3a4b5c6d7e8",
+    profilePhoto: "",
+    canTransfer: true,
+    canFundWithWallet: true,
+    password: "temp123", // In real app, this would be hashed
+    createdAt: "2024-01-15"
   },
-  cust_002: {
-    id: "cust_002",
-    name: "Jane Smith",
-    email: "jane.smith@email.com",
+  "2": {
+    id: "2",
+    name: "Bob Smith",
+    email: "bob@example.com",
     phone: "+1 (555) 234-5678",
-    accountNumber: "2345678901",
-    balance: 7850.30,
+    accountNumber: "ACC002",
+    balance: 8750.25,
     status: "Active",
-    joinDate: "2024-02-20",
+    joinDate: "2024-02-01",
+    lastLogin: "2024-12-21",
     address: "456 Oak Ave, City, State 67890",
+    btcWallet: "3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy",
+    usdtWallet: "0x8e9f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f",
+    profilePhoto: "",
+    canTransfer: true,
+    canFundWithWallet: true,
+    password: "secure456",
+    createdAt: "2024-02-01"
   },
-  cust_003: {
-    id: "cust_003",
-    name: "Bob Johnson",
-    email: "bob.johnson@email.com",
+  "3": {
+    id: "3",
+    name: "Carol Davis",
+    email: "carol@example.com",
     phone: "+1 (555) 345-6789",
-    accountNumber: "3456789012",
-    balance: 2150.75,
+    accountNumber: "ACC003",
+    balance: 32180.75,
     status: "Blocked",
-    joinDate: "2024-03-10",
+    joinDate: "2024-01-28",
+    lastLogin: "2024-12-20",
     address: "789 Pine St, City, State 13579",
+    btcWallet: "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+    usdtWallet: "0x1f2e3d4c5b6a7980e1f2e3d4c5b6a798",
+    profilePhoto: "",
+    canTransfer: false,
+    canFundWithWallet: false,
+    password: "blocked789",
+    createdAt: "2024-01-28"
   },
-  cust_004: {
-    id: "cust_004",
-    name: "Alice Brown",
-    email: "alice.brown@email.com",
+  "4": {
+    id: "4",
+    name: "David Wilson",
+    email: "david@example.com",
     phone: "+1 (555) 456-7890",
-    accountNumber: "4567890123",
-    balance: 15687.90,
+    accountNumber: "ACC004",
+    balance: 5220.00,
     status: "Active",
-    joinDate: "2024-04-05",
+    joinDate: "2024-03-10",
+    lastLogin: "2024-12-22",
     address: "321 Elm Dr, City, State 24680",
+    btcWallet: "36UPz5zY8QpFdBCXeHqS7UvgMcVfzLKDfm",
+    usdtWallet: "0x4f5e6d7c8b9a0123456789abcdef0123",
+    profilePhoto: "",
+    canTransfer: true,
+    canFundWithWallet: true,
+    password: "david2024",
+    createdAt: "2024-03-10"
   },
+  "5": {
+    id: "5",
+    name: "Eva Brown",
+    email: "eva@example.com",
+    phone: "+1 (555) 567-8901",
+    accountNumber: "ACC005",
+    balance: 12840.30,
+    status: "Active",
+    joinDate: "2024-02-15",
+    lastLogin: "2024-12-21",
+    address: "987 Cedar Blvd, City, State 97531",
+    btcWallet: "1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2",
+    usdtWallet: "0x9876543210abcdef0123456789abcdef",
+    profilePhoto: "",
+    canTransfer: true,
+    canFundWithWallet: true,
+    password: "eva2024!",
+    createdAt: "2024-02-15"
+  }
 };
 
-// Mock transaction data
+// Enhanced mock transaction data
 const mockTransactions = [
-  { id: "txn_1", date: "2024-07-28", type: "Deposit", amount: 1000.00, description: "Salary" },
-  { id: "txn_2", date: "2024-07-27", type: "Withdrawal", amount: -50.00, description: "ATM Withdrawal" },
-  { id: "txn_3", date: "2024-07-26", type: "Transfer", amount: -200.00, description: "Transfer to Jane" },
-  { id: "txn_4", date: "2024-07-25", type: "Deposit", amount: 500.00, description: "Freelance Payment" },
+  { id: "txn_1", date: "2024-12-22", time: "14:30", type: "Credit", amount: 1000.00, description: "Salary Deposit", category: "Income", status: "Completed" },
+  { id: "txn_2", date: "2024-12-21", time: "16:45", type: "Debit", amount: -50.00, description: "ATM Withdrawal", category: "Cash", status: "Completed" },
+  { id: "txn_3", date: "2024-12-21", time: "10:20", type: "Debit", amount: -200.00, description: "Transfer to Jane Smith", category: "Transfer", status: "Completed" },
+  { id: "txn_4", date: "2024-12-20", time: "09:15", type: "Credit", amount: 500.00, description: "Freelance Payment", category: "Income", status: "Completed" },
+  { id: "txn_5", date: "2024-12-19", time: "18:30", type: "Debit", amount: -75.50, description: "Grocery Store", category: "Shopping", status: "Completed" },
 ];
 
 export default function ManageCustomer() {
   const router = useRouter();
   const { id } = router.query;
+  const [user, setUser] = useState<any>(null);
   const [customerData, setCustomerData] = useState(
     mockCustomerData[id as keyof typeof mockCustomerData] || null
   );
+  const [transactions, setTransactions] = useState(mockTransactions);
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState(customerData || {});
+  const [isAddTransactionOpen, setIsAddTransactionOpen] = useState(false);
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+  const [fundAmount, setFundAmount] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [newTransaction, setNewTransaction] = useState({
+    type: "Credit",
+    amount: "",
+    description: "",
+    category: "Income"
+  });
+  const [newPassword, setNewPassword] = useState("");
+
+  useEffect(() => {
+    // Check authentication
+    const userData = localStorage.getItem('ativabank_user');
+    if (!userData) {
+      router.push('/');
+      return;
+    }
+    
+    const parsedUser = JSON.parse(userData);
+    if (parsedUser.userType !== 'admin') {
+      router.push('/');
+      return;
+    }
+    
+    setUser(parsedUser);
+  }, [router]);
+
+  const handleLogout = () => {
+    localStorage.removeItem('ativabank_user');
+    router.push('/');
+  };
+
+  if (!user) return null;
 
   if (!customerData) {
     return (

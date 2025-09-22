@@ -95,6 +95,14 @@ Actions Column: Use a radix-ui DropdownMenu with options to "View/Manage" and "D
 
 Controls: A "Create New Customer" button that opens a form to add a new customer.
 
+forms to collect customer details. like name, profile photo, account balance, btc wallet, usdt wallet, and initial deposit.
+
+also add options to block transfers, fund with wallet,independently 
+
+admins can also add transfer hisory to a customer account with amount, transaction details, date and time n type (credit/debit).
+
+they can also create a password for the customer to login. and reset password
+
 Customer Dashboard (customer/index.tsx)
 Header: A header component with the Ativabank logo, "Customer" title, and a user profile button.
 
