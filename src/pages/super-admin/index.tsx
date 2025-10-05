@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
-import { useRouter } from "next/router";
+import { useState } from "react";
 import { Header } from "@/components/layout/Header";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { useAuthContext } from "@/contexts/AuthContext";
 import Link from "next/link";
 
 // Mock admin data
@@ -11,34 +12,11 @@ const mockAdmins = [
   { id: 4, name: "Emily Chen", email: "emily@ativabank.com", status: "Active", createdAt: "2024-02-10", adminId: "ADM004" },
 ];
 
-export default function SuperAdminDashboard() {
-  const router = useRouter();
-  const [user, setUser] = useState<any>(null);
+function SuperAdminDashboardContent() {
+  const { currentUser, logout } = useAuthContext();
   const [admins, setAdmins] = useState(mockAdmins);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [newAdmin, setNewAdmin] = useState({ name: "", email: "", password: "" });
-
-  useEffect(() => {
-    // Check authentication
-    const userData = localStorage.getItem('ativabank_user');
-    if (!userData) {
-      router.push('/');
-      return;
-    }
-    
-    const parsedUser = JSON.parse(userData);
-    if (parsedUser.userType !== 'super-admin') {
-      router.push('/');
-      return;
-    }
-    
-    setUser(parsedUser);
-  }, [router]);
-
-  const handleLogout = () => {
-    localStorage.removeItem('ativabank_user');
-    router.push('/');
-  };
 
   const handleCreateAdmin = () => {
     if (newAdmin.name && newAdmin.email && newAdmin.password) {
@@ -64,11 +42,11 @@ export default function SuperAdminDashboard() {
     ));
   };
 
-  if (!user) return null;
+  if (!currentUser) return null;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-indigo-50 to-purple-50">
-      <Header title="Super Admin Dashboard" onLogout={handleLogout} />
+      <Header title="Super Admin Dashboard" onLogout={logout} />
       <main className="p-8">
         <div className="max-w-7xl mx-auto space-y-8">
           {/* Welcome Section */}
@@ -239,5 +217,13 @@ export default function SuperAdminDashboard() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function SuperAdminDashboard() {
+  return (
+    <ProtectedRoute allowedRoles={['super-admin']}>
+      <SuperAdminDashboardContent />
+    </ProtectedRoute>
   );
 }

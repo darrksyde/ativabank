@@ -1,26 +1,75 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
+import { useAuthContext } from "@/contexts/AuthContext";
+
+const DEMO_ACCOUNTS = [
+  { type: 'Customer', email: 'customer@ativabank.com', password: 'customer123' },
+  { type: 'Admin', email: 'admin@ativabank.com', password: 'admin123' },
+  { type: 'Super Admin', email: 'superadmin@ativabank.com', password: 'super123' },
+];
 
 export default function LoginPage() {
   const router = useRouter();
+  const { login, isLoading, currentUser } = useAuthContext();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [userType, setUserType] = useState<"customer" | "admin" | "super-admin">("customer");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleLogin = () => {
-    // Simple mock authentication - store user data and redirect
-    const userData = {
-      email,
-      userType,
-      loginTime: new Date().toISOString(),
-    };
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (!isLoading && currentUser) {
+      router.replace(`/${currentUser.role}`);
+    }
+  }, [isLoading, currentUser, router]);
+
+  const handleLogin = async () => {
+    if (!email || !password) {
+      setError("Please fill in all fields");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError("");
+
+    const success = await login(email.trim(), password);
     
-    // Store in localStorage for session management
-    localStorage.setItem('ativabank_user', JSON.stringify(userData));
-    
-    // Redirect based on user type
-    router.push(`/${userType}`);
+    if (!success) {
+      setError("Invalid email or password");
+      setIsSubmitting(false);
+    }
   };
+
+  // Handle Enter key press
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !isSubmitting) {
+      handleLogin();
+    }
+  };
+
+  // Show loading state while authentication is being checked
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 flex items-center justify-center">
+        <div className="text-center text-white">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't show login form if user is already authenticated (prevents flash)
+  if (currentUser) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 flex items-center justify-center">
+        <div className="text-center text-white">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+          <p>Redirecting...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 flex items-center justify-center p-4">
@@ -62,29 +111,45 @@ export default function LoginPage() {
           </div>
           
           <div className="space-y-6">
-            {/* User Type Selection */}
-            <div className="space-y-2">
-              <label className="text-white text-sm font-medium block">Account Type</label>
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { value: "customer", label: "Customer" },
-                  { value: "admin", label: "Admin" },
-                  { value: "super-admin", label: "Super Admin" }
-                ].map((type) => (
-                  <button
-                    key={type.value}
-                    onClick={() => setUserType(type.value as any)}
-                    className={`px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
-                      userType === type.value
-                        ? "bg-blue-500 text-white shadow-lg"
-                        : "bg-white/10 text-blue-200 hover:bg-white/20"
-                    }`}
-                  >
-                    {type.label}
-                  </button>
+
+
+            {/* Demo Credentials */}
+            <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg p-4">
+              <h3 className="text-white font-medium mb-3 flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Demo Accounts
+              </h3>
+              <div className="space-y-2 text-sm">
+                {DEMO_ACCOUNTS.map((account, index) => (
+                  <div key={index} className="space-y-1">
+                    <div className="flex justify-between items-center">
+                      <span className="text-blue-200">{account.type}:</span>
+                      <button
+                        onClick={() => {
+                          setEmail(account.email);
+                          setPassword(account.password);
+                        }}
+                        className="text-xs bg-blue-500/20 hover:bg-blue-500/30 text-white px-2 py-1 rounded transition-all"
+                      >
+                        Use
+                      </button>
+                    </div>
+                    <div className="text-xs text-white font-mono">
+                      {account.email} / {account.password}
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
+
+            {/* Error Message */}
+            {error && (
+              <div className="bg-red-500/20 border border-red-500/50 text-red-200 px-4 py-3 rounded-lg">
+                {error}
+              </div>
+            )}
 
             {/* Email Input */}
             <div>
@@ -96,7 +161,9 @@ export default function LoginPage() {
                 placeholder="Enter your email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 bg-white/10 border border-white/20 text-white placeholder-blue-200 rounded-lg focus:bg-white/20 focus:border-blue-400 focus:outline-none transition-all duration-200"
+                onKeyPress={handleKeyPress}
+                disabled={isSubmitting}
+                className="w-full px-4 py-3 bg-white/10 border border-white/20 text-white placeholder-blue-200 rounded-lg focus:bg-white/20 focus:border-blue-400 focus:outline-none transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
 
@@ -110,16 +177,26 @@ export default function LoginPage() {
                 placeholder="Enter your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 bg-white/10 border border-white/20 text-white placeholder-blue-200 rounded-lg focus:bg-white/20 focus:border-blue-400 focus:outline-none transition-all duration-200"
+                onKeyPress={handleKeyPress}
+                disabled={isSubmitting}
+                className="w-full px-4 py-3 bg-white/10 border border-white/20 text-white placeholder-blue-200 rounded-lg focus:bg-white/20 focus:border-blue-400 focus:outline-none transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
 
             {/* Login Button */}
             <button 
               onClick={handleLogin}
-              className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200"
+              disabled={isSubmitting || !email || !password}
+              className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2"
             >
-              Sign In
+              {isSubmitting ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  Signing In...
+                </>
+              ) : (
+                "Sign In"
+              )}
             </button>
 
             {/* Additional Links */}
@@ -137,7 +214,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Demo Credentials */}
+        {/* Demo Credentials 
         <div className="mt-6 p-4 bg-black/20 rounded-lg backdrop-blur-sm">
           <h3 className="text-white font-medium mb-2">Demo Credentials</h3>
           <div className="text-sm text-blue-200 space-y-1">
@@ -145,12 +222,12 @@ export default function LoginPage() {
             <p><strong>Password:</strong> demo123</p>
             <p className="text-xs text-blue-300 mt-2">Select your role above and click Sign In</p>
           </div>
-        </div>
+        </div>*/}
 
         {/* Footer */}
         <div className="text-center mt-8 text-blue-200 text-sm">
-          <p>&copy; 2024 Ativabank. All rights reserved.</p>
-          <p className="mt-2">Demo Mode - No real transactions will be processed</p>
+          <p>&copy; 2025 Ativabank. All rights reserved.</p>
+          <p className="mt-2"></p>
         </div>
       </div>
     </div>

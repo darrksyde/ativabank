@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { ValidationResult, debounce } from "@/lib/validation";
+import { ValidationResult } from "@/lib/types";
+import { debounce } from "@/lib/validation";
 
 interface ValidatedInputProps {
   label: string;

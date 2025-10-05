@@ -1,9 +1,5 @@
 // Form validation utilities for Ativabank
-
-export interface ValidationResult {
-  isValid: boolean;
-  errors: string[];
-}
+import { ValidationResult, FieldValidation, CustomerCreationData } from '@/lib/types';
 
 export interface FormField {
   value: string;
@@ -78,8 +74,8 @@ export const validateAccountNumber = (accountNumber: string): ValidationResult =
   
   if (!accountNumber.trim()) {
     errors.push("Account number is required");
-  } else if (!/^ACC\d{3,}$/.test(accountNumber.trim())) {
-    errors.push("Account number must be in format ACC### (e.g., ACC001)");
+  } else if (!/^\d{10}$/.test(accountNumber.trim())) {
+    errors.push("Account number must be exactly 10 digits");
   }
   
   return { isValid: errors.length === 0, errors };
@@ -155,6 +151,17 @@ export const validateForm = (
 // Check if entire form is valid
 export const isFormValid = (validationResults: Record<string, ValidationResult>): boolean => {
   return Object.values(validationResults).every(result => result.isValid);
+};
+
+// Customer creation validation
+export const validateCustomerCreation = (data: CustomerCreationData): FieldValidation => {
+  return {
+    name: validateName(data.name),
+    email: validateEmail(data.email),
+    password: validatePassword(data.password),
+    phone: data.phone ? validatePhone(data.phone) : { isValid: true, errors: [] },
+    initialBalance: validateAmount(data.initialBalance.toString(), 0, 1000000)
+  };
 };
 
 // Sanitize input to prevent XSS
