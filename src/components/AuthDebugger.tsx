@@ -1,6 +1,4 @@
-import { us    const logEntry = `${timestamp}: Render #${renderCount + 1} - Loading: ${isLoading}, User: ${currentUser?.role || 'none'}, Auth: ${!!currentUser}`;
-    setLogs(prev => [...prev.slice(-19), logEntry]);
-  }, [currentUser, isLoading, renderCount]);fect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuthContext } from '@/contexts/AuthContext';
 
 export function AuthDebugger() {
@@ -11,9 +9,9 @@ export function AuthDebugger() {
   useEffect(() => {
     setRenderCount(prev => prev + 1);
     const timestamp = new Date().toLocaleTimeString();
-    const logEntry = `${timestamp}: Render #${renderCount + 1} - Loading: ${isLoading}, User: ${currentUser?.role || 'none'}, Auth: ${isAuthenticated}`;
+    const logEntry = `${timestamp}: Render #${renderCount + 1} - Loading: ${isLoading}, User: ${currentUser?.role || 'none'}, Auth: ${!!currentUser}`;
     setLogs(prev => [...prev.slice(-9), logEntry]);
-  }, [currentUser, isLoading, isAuthenticated, renderCount]);
+  }, [currentUser, isLoading, renderCount]);
 
   // Only show in development
   if (process.env.NODE_ENV !== 'development') return null;

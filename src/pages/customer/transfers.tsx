@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CustomerLayout } from "@/components/layout/CustomerLayout";
 import { ValidatedInput } from "@/components/ui/validated-input";
 import { 
@@ -7,12 +7,29 @@ import {
   validateDescription, 
   isFormValid
 } from "@/lib/validation";
+import databaseManager from "@/lib/database-enhanced";
+import { useAuthContext } from "@/contexts/AuthContext";
+import { Customer, TransferRequest, Transaction } from "@/lib/types-enhanced";
+import { formatCurrency } from "@/lib/validation-enhanced";
 
 export default function TransfersPage() {
+  const { currentUser } = useAuthContext();
   const [accountNumber, setAccountNumber] = useState("");
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [currentCustomer, setCurrentCustomer] = useState<Customer | null>(null);
+  const [transferResult, setTransferResult] = useState<{ success: boolean; message: string; transactions?: Transaction[] } | null>(null);
+
+  // Load current customer data
+  useEffect(() => {
+    if (currentUser?.email) {
+      const customer = databaseManager.getCustomerByEmail(currentUser.email);
+      if (customer.success && customer.data) {
+        setCurrentCustomer(customer.data);
+      }
+    }
+  }, [currentUser]);
 
   const validateTransferForm = () => {
     const results = {
@@ -27,24 +44,59 @@ export default function TransfersPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!validateTransferForm()) {
+    if (!validateTransferForm() || !currentCustomer) {
+      return;
+    }
+
+    if (!currentCustomer.account.permissions.canTransfer) {
+      setTransferResult({
+        success: false,
+        message: "Transfers are disabled for your account. Please contact support."
+      });
       return;
     }
 
     setIsLoading(true);
+    setTransferResult(null);
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const transferRequest: TransferRequest = {
+        fromAccountNumber: currentCustomer.account.accountNumber,
+        toAccountNumber: accountNumber,
+        amount: parseFloat(amount),
+        description: description || "Transfer"
+      };
+
+      const result = await databaseManager.processTransfer(transferRequest, currentCustomer.id);
       
-      // Reset form on success
-      setAccountNumber("");
-      setAmount("");
-      setDescription("");
-      
-      alert("Transfer successful!");
+      if (result.success) {
+        setTransferResult({
+          success: true,
+          message: "Transfer completed successfully!",
+          transactions: result.data
+        });
+        
+        // Reset form on success
+        setAccountNumber("");
+        setAmount("");
+        setDescription("");
+        
+        // Refresh customer data to show updated balance
+        const updatedCustomer = databaseManager.getCustomerByEmail(currentCustomer.email);
+        if (updatedCustomer.success && updatedCustomer.data) {
+          setCurrentCustomer(updatedCustomer.data);
+        }
+      } else {
+        setTransferResult({
+          success: false,
+          message: result.error || "Transfer failed"
+        });
+      }
     } catch (error) {
-      alert("Transfer failed. Please try again.");
+      setTransferResult({
+        success: false,
+        message: "Transfer failed. Please try again."
+      });
     } finally {
       setIsLoading(false);
     }
@@ -75,6 +127,45 @@ export default function TransfersPage() {
             <div className="bg-white rounded-xl shadow-lg p-6">
               <h2 className="text-xl font-semibold text-gray-800 mb-6">New Transfer</h2>
               
+              {/* Transfer Result */}
+              {transferResult && (
+                <div className={`p-4 rounded-lg border ${
+                  transferResult.success 
+                    ? 'bg-green-50 border-green-200 text-green-800' 
+                    : 'bg-red-50 border-red-200 text-red-800'
+                }`}>
+                  <div className="flex items-center gap-2">
+                    {transferResult.success ? (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    )}
+                    <p className="font-medium">{transferResult.message}</p>
+                  </div>
+                  
+                  {transferResult.success && transferResult.transactions && (
+                    <div className="mt-3 text-sm">
+                      <p>Transfer ID: {transferResult.transactions[0]?.id}</p>
+                      <p>Amount: {formatCurrency(transferResult.transactions[0]?.amount || 0)}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Current Balance Display */}
+              {currentCustomer && (
+                <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg p-4">
+                  <h3 className="font-semibold text-blue-800 mb-2">Current Balance</h3>
+                  <div className="text-2xl font-bold text-blue-900">
+                    {formatCurrency(currentCustomer.account.balance)}
+                  </div>
+                </div>
+              )}
+
               <form onSubmit={handleSubmit} className="space-y-6">
                 <ValidatedInput
                   label="Recipient Account Number"
@@ -147,7 +238,7 @@ export default function TransfersPage() {
 
                 <button
                   type="submit"
-                  disabled={isLoading}
+                  disabled={isLoading || !currentCustomer?.account.permissions.canTransfer}
                   className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 shadow-lg"
                 >
                   {isLoading ? (
@@ -156,7 +247,9 @@ export default function TransfersPage() {
                       Processing...
                     </div>
                   ) : (
-                    "Send Transfer"
+                    currentCustomer?.account.permissions.canTransfer 
+                      ? "Send Transfer" 
+                      : "Transfers Disabled"
                   )}
                 </button>
               </form>
@@ -188,29 +281,43 @@ export default function TransfersPage() {
             </div>
 
             {/* Transfer Limits */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">Transfer Limits</h3>
-              <div className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Daily Limit:</span>
-                  <span className="font-medium">$5,000</span>
+            {currentCustomer && (
+              <div className="bg-white rounded-xl shadow-lg p-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Transfer Limits</h3>
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Daily Limit:</span>
+                    <span className="font-medium">
+                      {formatCurrency(currentCustomer.account.limits.dailyTransferLimit)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Monthly Limit:</span>
+                    <span className="font-medium">
+                      {formatCurrency(currentCustomer.account.limits.monthlyTransferLimit)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Status:</span>
+                    <span className={`font-medium ${
+                      currentCustomer.account.permissions.canTransfer 
+                        ? 'text-green-600' 
+                        : 'text-red-600'
+                    }`}>
+                      {currentCustomer.account.permissions.canTransfer ? 'Enabled' : 'Disabled'}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Used Today:</span>
-                  <span className="font-medium text-blue-600">$125</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Remaining:</span>
-                  <span className="font-medium text-green-600">$4,875</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2 mt-3">
-                  <div 
-                    className="bg-blue-600 h-2 rounded-full" 
-                    style={{ width: '2.5%' }}
-                  ></div>
-                </div>
+                
+                {!currentCustomer.account.permissions.canTransfer && (
+                  <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-sm text-red-700">
+                      Transfers are currently disabled for your account. Please contact support.
+                    </p>
+                  </div>
+                )}
               </div>
-            </div>
+            )}
 
             {/* Security Note */}
             <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CustomerLayout } from "@/components/layout/CustomerLayout";
 import {
   Card,
@@ -15,119 +15,134 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import databaseManager from "@/lib/database-enhanced";
+import { useAuthContext } from "@/contexts/AuthContext";
+import { Customer, Transaction, TransactionFilters } from "@/lib/types-enhanced";
+import { formatCurrency, formatDate } from "@/lib/validation-enhanced";
 
-// Mock data for transaction history
-const transactions = [
-  {
-    id: "txn_1",
-    date: "2024-07-28",
-    time: "2:30 PM",
-    description: "Netflix Subscription",
-    category: "Entertainment",
-    amount: -15.99,
-    status: "Completed",
-    balance: 10432.55,
-  },
-  {
-    id: "txn_2",
-    date: "2024-07-28",
-    time: "9:00 AM",
-    description: "Salary Deposit",
-    category: "Income",
-    amount: 2500.0,
-    status: "Completed",
-    balance: 10448.54,
-  },
-  {
-    id: "txn_3",
-    date: "2024-07-27",
-    time: "11:45 AM",
-    description: "Starbucks Coffee",
-    category: "Food & Dining",
-    amount: -5.75,
-    status: "Completed",
-    balance: 7948.54,
-  },
-  {
-    id: "txn_4",
-    date: "2024-07-26",
-    time: "4:20 PM",
-    description: "Gas Station",
-    category: "Transportation",
-    amount: -45.3,
-    status: "Completed",
-    balance: 7954.29,
-  },
-  {
-    id: "txn_5",
-    date: "2024-07-25",
-    time: "3:15 PM",
-    description: "Amazon Purchase",
-    category: "Shopping",
-    amount: -89.99,
-    status: "Completed",
-    balance: 7999.59,
-  },
-  {
-    id: "txn_6",
-    date: "2024-07-24",
-    time: "1:00 PM",
-    description: "ATM Withdrawal",
-    category: "Cash",
-    amount: -100.0,
-    status: "Completed",
-    balance: 8089.58,
-  },
-  {
-    id: "txn_7",
-    date: "2024-07-23",
-    time: "10:30 AM",
-    description: "Rent Payment",
-    category: "Housing",
-    amount: -1200.0,
-    status: "Completed",
-    balance: 8189.58,
-  },
-  {
-    id: "txn_8",
-    date: "2024-07-22",
-    time: "6:45 PM",
-    description: "Restaurant Dinner",
-    category: "Food & Dining",
-    amount: -67.23,
-    status: "Completed",
-    balance: 9389.58,
-  },
+const categories = [
+  "All", 
+  "transfer", 
+  "deposit", 
+  "withdrawal", 
+  "card-funding", 
+  "wallet-funding", 
+  "payment", 
+  "refund", 
+  "fee", 
+  "adjustment", 
+  "initial-deposit"
 ];
 
-const categories = ["All", "Income", "Food & Dining", "Entertainment", "Shopping", "Transportation", "Housing", "Cash"];
-
 export default function HistoryPage() {
+  const { currentUser } = useAuthContext();
+  const [currentCustomer, setCurrentCustomer] = useState<Customer | null>(null);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [searchTerm, setSearchTerm] = useState("");
   const [dateFilter, setDateFilter] = useState("all");
+  const [isLoading, setIsLoading] = useState(true);
+  const [customDateFrom, setCustomDateFrom] = useState("");
+  const [customDateTo, setCustomDateTo] = useState("");
+  const [minAmount, setMinAmount] = useState("");
+  const [maxAmount, setMaxAmount] = useState("");
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+
+  // Load customer data and transactions
+  useEffect(() => {
+    if (currentUser?.email) {
+      setIsLoading(true);
+      
+      // Get customer data
+      const customer = databaseManager.getCustomerByEmail(currentUser.email);
+      if (customer.success && customer.data) {
+        setCurrentCustomer(customer.data);
+        
+        // Get transactions for this customer
+        const customerTransactions = databaseManager.getCustomerTransactions(customer.data.id);
+        setTransactions(customerTransactions);
+      }
+      
+      setIsLoading(false);
+    }
+  }, [currentUser]);
 
   const filteredTransactions = transactions.filter(transaction => {
     const matchesCategory = selectedCategory === "All" || transaction.category === selectedCategory;
     const matchesSearch = transaction.description.toLowerCase().includes(searchTerm.toLowerCase());
     
     let matchesDate = true;
+    const transactionDate = new Date(transaction.timestamp);
+    
     if (dateFilter === "today") {
-      matchesDate = transaction.date === "2024-07-28";
+      const today = new Date();
+      matchesDate = transactionDate.toDateString() === today.toDateString();
     } else if (dateFilter === "week") {
-      const transactionDate = new Date(transaction.date);
       const weekAgo = new Date();
       weekAgo.setDate(weekAgo.getDate() - 7);
       matchesDate = transactionDate >= weekAgo;
     } else if (dateFilter === "month") {
-      const transactionDate = new Date(transaction.date);
       const monthAgo = new Date();
       monthAgo.setMonth(monthAgo.getMonth() - 1);
       matchesDate = transactionDate >= monthAgo;
     }
+
+    // Advanced date filters
+    if (customDateFrom) {
+      const fromDate = new Date(customDateFrom);
+      matchesDate = matchesDate && transactionDate >= fromDate;
+    }
     
-    return matchesCategory && matchesSearch && matchesDate;
+    if (customDateTo) {
+      const toDate = new Date(customDateTo);
+      toDate.setHours(23, 59, 59, 999); // Include the entire day
+      matchesDate = matchesDate && transactionDate <= toDate;
+    }
+
+    // Amount filters
+    let matchesAmount = true;
+    if (minAmount) {
+      const min = parseFloat(minAmount);
+      matchesAmount = matchesAmount && Math.abs(transaction.amount) >= min;
+    }
+    
+    if (maxAmount) {
+      const max = parseFloat(maxAmount);
+      matchesAmount = matchesAmount && Math.abs(transaction.amount) <= max;
+    }
+    
+    return matchesCategory && matchesSearch && matchesDate && matchesAmount;
   });
+
+  const exportTransactions = () => {
+    const csvContent = [
+      // CSV Header
+      ['Date', 'Description', 'Category', 'Type', 'Amount', 'Balance After', 'Status', 'Reference'].join(','),
+      // CSV Data
+      ...filteredTransactions.map(t => [
+        formatDate(t.timestamp),
+        `"${t.description}"`,
+        t.category,
+        t.type,
+        t.amount,
+        t.balanceAfter,
+        t.status,
+        t.reference
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    if (link.download !== undefined) {
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `ativabank-transactions-${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -229,6 +244,104 @@ export default function HistoryPage() {
                 </select>
               </div>
             </div>
+
+            {/* Action Buttons */}
+            <div className="mt-4 flex gap-3 flex-wrap">
+              <button
+                onClick={exportTransactions}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Export CSV
+              </button>
+              
+              <button
+                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
+                </svg>
+                Advanced Filters
+              </button>
+            </div>
+
+            {/* Advanced Filters */}
+            {showAdvancedFilters && (
+              <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                <h4 className="font-medium text-gray-800 mb-4">Advanced Filters</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      From Date
+                    </label>
+                    <input
+                      type="date"
+                      value={customDateFrom}
+                      onChange={(e) => setCustomDateFrom(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      To Date
+                    </label>
+                    <input
+                      type="date"
+                      value={customDateTo}
+                      onChange={(e) => setCustomDateTo(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Min Amount ($)
+                    </label>
+                    <input
+                      type="number"
+                      placeholder="0.00"
+                      value={minAmount}
+                      onChange={(e) => setMinAmount(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Max Amount ($)
+                    </label>
+                    <input
+                      type="number"
+                      placeholder="0.00"
+                      value={maxAmount}
+                      onChange={(e) => setMaxAmount(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+                
+                <div className="mt-4 flex gap-2">
+                  <button
+                    onClick={() => {
+                      setCustomDateFrom("");
+                      setCustomDateTo("");
+                      setMinAmount("");
+                      setMaxAmount("");
+                      setSelectedCategory("All");
+                      setSearchTerm("");
+                      setDateFilter("all");
+                    }}
+                    className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                  >
+                    Clear Filters
+                  </button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -324,8 +437,8 @@ export default function HistoryPage() {
                       <TableRow key={transaction.id} className="hover:bg-gray-50">
                         <TableCell>
                           <div>
-                            <p className="font-medium">{transaction.date}</p>
-                            <p className="text-sm text-gray-500">{transaction.time}</p>
+                            <p className="font-medium">{formatDate(transaction.timestamp)}</p>
+                            <p className="text-sm text-gray-500">ID: {transaction.id}</p>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -349,7 +462,7 @@ export default function HistoryPage() {
                           </span>
                         </TableCell>
                         <TableCell>
-                          <span className="text-gray-600">${transaction.balance.toFixed(2)}</span>
+                          <span className="text-gray-600">{formatCurrency(transaction.balanceAfter)}</span>
                         </TableCell>
                         <TableCell>
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(transaction.status)}`}>
